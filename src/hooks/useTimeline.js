@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect } from 'react'
 import { STAGES, DEFAULT_ROWS, DEFAULT_FEATURES } from '../data/constants'
 import { initFromSheets, enqueuePendingAction, hasPendingAction, getPendingCount } from '../data/sheets'
 
+// config and getAccessToken are injected by App once the user has authenticated
+
 const STORAGE_KEY = 'timeline-tracker-v3'
 const SYNC_TS_KEY = 'timeline-tracker-synced-at'
 
@@ -158,7 +160,7 @@ export function timelineToText(timeline) {
 }
 
 // ── Hook ────────────────────────────────────────────────────────
-export function useTimeline() {
+export function useTimeline({ config, getAccessToken } = {}) {
   const [state, setState] = useState(loadFromStorage)
   const [loading, setLoading] = useState(false)
   const [syncError, setSyncError] = useState(null)
@@ -170,10 +172,11 @@ export function useTimeline() {
   }, [])
 
   const syncFromSheets = useCallback(async () => {
+    if (!config) return
     setLoading(true)
     setSyncError(null)
     try {
-      const d = await initFromSheets()
+      const d = await initFromSheets(config, getAccessToken)
       const next = migrateState(d)
       save(next)
       setState(next)

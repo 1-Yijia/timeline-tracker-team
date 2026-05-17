@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { STAGES, STAGE_LABELS } from './data/constants'
 import { useTimeline, computeDisplayStage } from './hooks/useTimeline'
+import { useSheetConfig } from './hooks/useSheetConfig'
+import { OnboardingScreen, ReauthScreen } from './components/OnboardingScreen'
 import { FeatureCard } from './components/FeatureCard'
-import { Button, Input, FolderIcon } from './components/UI'
+import { Button, Input, FolderIcon, ConfirmModal } from './components/UI'
 
 const COL_PRODUCT = 70
 const COL_MARKET = 74
@@ -21,26 +23,72 @@ function computeSpans(rowList) {
   return { productSpans: ps, marketSpans: ms }
 }
 
+// ── Top-level gate ────────────────────────────────────────────────
+
 export default function App() {
+  const sheetConfig = useSheetConfig()
+  const { authState, clientId, saveConfig, saveToken, clearAll, setAuthState } = sheetConfig
+
+  if (authState === 'loading') {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--bg)',
+      }}>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text3)' }}>
+          Loading…
+        </span>
+      </div>
+    )
+  }
+
+  if (authState === 'onboarding') {
+    return (
+      <OnboardingScreen
+        clientId={clientId}
+        saveConfig={saveConfig}
+        saveToken={saveToken}
+        setAuthState={setAuthState}
+      />
+    )
+  }
+
+  if (authState === 'reauth') {
+    return (
+      <ReauthScreen
+        clientId={clientId}
+        saveToken={saveToken}
+        setAuthState={setAuthState}
+      />
+    )
+  }
+
+  return <Board sheetConfig={sheetConfig} />
+}
+
+// ── Board (only mounts when authState === 'ready') ────────────────
+
+function Board({ sheetConfig }) {
+  const { config, getAccessToken, clearAll } = sheetConfig
+
   const {
     rows, features, today,
     deleteFeature, setArchived,
     loading, syncError, lastSyncedAt, syncFromSheets,
     hasPendingChanges,
-  } = useTimeline()
+  } = useTimeline({ config, getAccessToken })
 
   const [stageColWidth, setStageColWidth] = useState(STAGE_COL_MAX)
-  const [activeTab, setActiveTab] = useState('active') // 'active' | 'archived'
+  const [activeTab, setActiveTab] = useState('active')
   const [archiveQuery, setArchiveQuery] = useState('')
-  const [archiveSort, setArchiveSort] = useState('desc') // 'asc' | 'desc'
+  const [archiveSort, setArchiveSort] = useState('desc')
+  const [showChangeSheet, setShowChangeSheet] = useState(false)
 
-  // Fit all stage columns into the viewport (no horizontal scrolling)
   useEffect(() => {
     function recompute() {
       const available = window.innerWidth - (COL_PRODUCT + COL_MARKET)
       const w = Math.floor(available / BOARD_STAGES.length)
-      const clamped = Math.max(STAGE_COL_MIN, Math.min(STAGE_COL_MAX, w))
-      setStageColWidth(clamped)
+      setStageColWidth(Math.max(STAGE_COL_MIN, Math.min(STAGE_COL_MAX, w)))
     }
     recompute()
     window.addEventListener('resize', recompute)
@@ -53,7 +101,6 @@ export default function App() {
 
   const showArchived = activeTab === 'archived'
 
-  // Sort rows so same products are contiguous (preserving first-seen product order)
   const sortedRows = useMemo(() => {
     const productOrder = []
     rows.forEach(r => { if (!productOrder.includes(r.product)) productOrder.push(r.product) })
@@ -77,14 +124,12 @@ export default function App() {
     return stages.some(stage => featuresAtView(row.product, row.market, stage).length > 0)
   }
 
-  // Main board: only rows that have at least one feature in a board stage
   const boardRows = useMemo(() =>
     sortedRows.filter(row => rowHasFeatureIn(row, BOARD_STAGES))
   , [sortedRows, features, today]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const boardSpans = useMemo(() => computeSpans(boardRows), [boardRows])
 
-  // Post-live: only rows that have at least one feature in live-testing or greyscale
   const postLiveRows = useMemo(() =>
     sortedRows.filter(row => rowHasFeatureIn(row, EXTRA_STAGES))
   , [sortedRows, features, today]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -120,7 +165,6 @@ export default function App() {
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Data source indicator */}
           <span style={{
             fontFamily: 'var(--mono)', fontSize: 10,
             color: syncError ? 'var(--red)' : 'var(--text3)',
@@ -151,6 +195,18 @@ export default function App() {
           >
             <FolderIcon size={12} /> Archive
           </Button>
+          {/* Change sheet */}
+          <button
+            onClick={() => setShowChangeSheet(true)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: 'var(--mono)', fontSize: 10,
+              color: 'var(--text3)',
+              padding: '4px 6px',
+            }}
+          >
+            Change sheet
+          </button>
         </div>
       </header>
 
@@ -195,6 +251,7 @@ export default function App() {
           setQuery={setArchiveQuery}
           sortDir={archiveSort}
           setSortDir={setArchiveSort}
+          onUnarchive={(id) => setArchived(id, false)}
         />
       ) : (
         <div style={{ padding: '0 0 24px', overflowY: 'auto', overflowX: 'hidden', flex: '1 1 auto', background: 'var(--bg)' }}>
@@ -260,87 +317,96 @@ export default function App() {
             </tbody>
           </table>
 
-        {/* Post-live stages — only shown when at least one row has a feature in live-testing or greyscale */}
-        {postLiveRows.length > 0 && <div style={{ padding: '12px 0 0' }}>
-          <div style={{
-            padding: '0 0 8px',
-            fontFamily: 'var(--mono)',
-            fontSize: 10,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: 'var(--text3)',
-          }}>
-            Post-live
-          </div>
-          <table style={{
-            borderCollapse: 'separate', borderSpacing: 0,
-            width: '100%',
-            tableLayout: 'fixed',
-          }}>
-            <thead>
-              <tr>
-                <th style={thStyle({ width: COL_PRODUCT, left: 0 })}>Product</th>
-                <th style={thStyle({ width: COL_MARKET, left: COL_PRODUCT })}>Market</th>
-                {EXTRA_STAGES.map(s => (
-                  <th key={s} style={thStyle({ width: stageColWidth })}>
-                    {STAGE_LABELS[s]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {postLiveRows.map((row, ri) => {
-                const prev = postLiveRows[ri - 1]
-                const isFirstProduct = !prev || prev.product !== row.product
-                const isFirstMarket  = !prev || prev.product !== row.product || prev.market !== row.market
-                return (
-                  <tr key={`post-${row.product}-${row.market}-${ri}`}>
-                    {isFirstProduct && (
-                      <td rowSpan={postLiveSpans.productSpans[row.product]} style={{ ...tdLabel, left: 0, zIndex: 40, background: 'var(--surface2)', borderRight: '1px solid var(--border)' }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.15 }}>
-                          {row.product}
-                        </span>
-                      </td>
-                    )}
-                    {isFirstMarket && (
-                      <td rowSpan={postLiveSpans.marketSpans[`${row.product}||${row.market}`]} style={{ ...tdLabel, left: COL_PRODUCT, zIndex: 40, background: 'var(--surface2)', borderRight: '1px solid var(--border2)' }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', lineHeight: 1.15 }}>
-                          {row.market}
-                        </span>
-                      </td>
-                    )}
-                    {EXTRA_STAGES.map(stage => {
-                      const cellFeatures = featuresAtView(row.product, row.market, stage)
-                      return (
-                        <td key={stage} style={tdCell}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {cellFeatures.map(f => (
-                              <FeatureCard
-                                key={f.id}
-                                feature={f}
-                                displayStage={computeDisplayStage(f, today)}
-                                onDelete={deleteFeature}
-                                onArchive={setArchived}
-                              />
-                            ))}
-                          </div>
+          {postLiveRows.length > 0 && <div style={{ padding: '12px 0 0' }}>
+            <div style={{
+              padding: '0 0 8px',
+              fontFamily: 'var(--mono)',
+              fontSize: 10,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: 'var(--text3)',
+            }}>
+              Post-live
+            </div>
+            <table style={{
+              borderCollapse: 'separate', borderSpacing: 0,
+              width: '100%',
+              tableLayout: 'fixed',
+            }}>
+              <thead>
+                <tr>
+                  <th style={thStyle({ width: COL_PRODUCT, left: 0 })}>Product</th>
+                  <th style={thStyle({ width: COL_MARKET, left: COL_PRODUCT })}>Market</th>
+                  {EXTRA_STAGES.map(s => (
+                    <th key={s} style={thStyle({ width: stageColWidth })}>
+                      {STAGE_LABELS[s]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {postLiveRows.map((row, ri) => {
+                  const prev = postLiveRows[ri - 1]
+                  const isFirstProduct = !prev || prev.product !== row.product
+                  const isFirstMarket  = !prev || prev.product !== row.product || prev.market !== row.market
+                  return (
+                    <tr key={`post-${row.product}-${row.market}-${ri}`}>
+                      {isFirstProduct && (
+                        <td rowSpan={postLiveSpans.productSpans[row.product]} style={{ ...tdLabel, left: 0, zIndex: 40, background: 'var(--surface2)', borderRight: '1px solid var(--border)' }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.15 }}>
+                            {row.product}
+                          </span>
                         </td>
-                      )
-                    })}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>}
+                      )}
+                      {isFirstMarket && (
+                        <td rowSpan={postLiveSpans.marketSpans[`${row.product}||${row.market}`]} style={{ ...tdLabel, left: COL_PRODUCT, zIndex: 40, background: 'var(--surface2)', borderRight: '1px solid var(--border2)' }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', lineHeight: 1.15 }}>
+                            {row.market}
+                          </span>
+                        </td>
+                      )}
+                      {EXTRA_STAGES.map(stage => {
+                        const cellFeatures = featuresAtView(row.product, row.market, stage)
+                        return (
+                          <td key={stage} style={tdCell}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {cellFeatures.map(f => (
+                                <FeatureCard
+                                  key={f.id}
+                                  feature={f}
+                                  displayStage={computeDisplayStage(f, today)}
+                                  onDelete={deleteFeature}
+                                  onArchive={setArchived}
+                                />
+                              ))}
+                            </div>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>}
         </div>
       )}
 
+      {/* Change sheet confirmation */}
+      <ConfirmModal
+        open={showChangeSheet}
+        onClose={() => setShowChangeSheet(false)}
+        onConfirm={clearAll}
+        title="Change sheet"
+        message="This will disconnect your current sheet and clear all local cached data. You will need to bind a new sheet to continue."
+        confirmLabel="Disconnect & change"
+        confirmVariant="danger"
+      />
     </div>
   )
 }
 
-function ArchiveView({ features, query, setQuery, sortDir, setSortDir, onOpen }) {
+function ArchiveView({ features, query, setQuery, sortDir, setSortDir, onUnarchive }) {
   const q = (query || '').trim().toLowerCase()
   const filtered = features
     .filter(f => (f?.name || '').toLowerCase().includes(q))
@@ -379,53 +445,47 @@ function ArchiveView({ features, query, setQuery, sortDir, setSortDir, onOpen })
               <th style={archiveTh}>PRD</th>
               <th style={archiveTh}>Jira</th>
               <th style={{ ...archiveTh, textAlign: 'right' }}>Created</th>
+              <th style={{ ...archiveTh, borderRight: 'none' }}></th>
             </tr>
           </thead>
           <tbody>
             {filtered.map(f => (
-              <tr
-                key={f.id}
-                onClick={() => onOpen?.(f.id)}
-                style={{ cursor: 'pointer' }}
-              >
+              <tr key={f.id}>
                 <td style={archiveTdStrong}>{f.name}</td>
                 <td style={archiveTd}>{f.product}</td>
                 <td style={archiveTd}>{f.market}</td>
                 <td style={archiveTd}>
                   {f.prd ? (
-                    <a
-                      href={f.prd}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      style={archiveLink}
-                    >
-                      Open ↗
-                    </a>
+                    <a href={f.prd} target="_blank" rel="noopener noreferrer" style={archiveLink}>Open ↗</a>
                   ) : <span style={{ color: 'var(--text3)' }}>—</span>}
                 </td>
                 <td style={archiveTd}>
                   {f.jira ? (
-                    <a
-                      href={f.jira}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      style={archiveLink}
-                    >
-                      Open ↗
-                    </a>
+                    <a href={f.jira} target="_blank" rel="noopener noreferrer" style={archiveLink}>Open ↗</a>
                   ) : <span style={{ color: 'var(--text3)' }}>—</span>}
                 </td>
                 <td style={{ ...archiveTd, textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 11 }}>
                   {formatCreatedAt(f.createdAt)}
                 </td>
+                <td style={{ ...archiveTd, borderRight: 'none', textAlign: 'right' }}>
+                  <button
+                    onClick={() => onUnarchive(f.id)}
+                    style={{
+                      background: 'none', border: '1px solid var(--border2)',
+                      borderRadius: 5, cursor: 'pointer',
+                      fontFamily: 'var(--mono)', fontSize: 10,
+                      color: 'var(--text2)', padding: '3px 8px',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Unarchive
+                  </button>
+                </td>
               </tr>
             ))}
-
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ ...archiveTd, padding: '18px 12px', color: 'var(--text3)' }}>
+                <td colSpan={7} style={{ ...archiveTd, padding: '18px 12px', color: 'var(--text3)' }}>
                   No archived features found.
                 </td>
               </tr>
@@ -448,58 +508,30 @@ function formatCreatedAt(ms) {
 }
 
 const archiveTh = {
-  fontFamily: 'var(--mono)',
-  fontSize: 10,
-  fontWeight: 500,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase',
-  color: 'var(--text3)',
-  padding: '10px 12px',
-  borderBottom: '1px solid var(--grid-v)',
-  borderRight: '1px solid var(--grid-v)',
-  textAlign: 'left',
-  background: 'var(--header)',
-  position: 'sticky',
-  top: 0,
-  zIndex: 2,
+  fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 500,
+  letterSpacing: '0.12em', textTransform: 'uppercase',
+  color: 'var(--text3)', padding: '10px 12px',
+  borderBottom: '1px solid var(--grid-v)', borderRight: '1px solid var(--grid-v)',
+  textAlign: 'left', background: 'var(--header)',
+  position: 'sticky', top: 0, zIndex: 2,
 }
-
 const archiveTd = {
   padding: '10px 12px',
-  borderBottom: '1px solid var(--grid-h)',
-  borderRight: '1px solid var(--grid-v)',
-  color: 'var(--text2)',
-  background: 'var(--surface)',
+  borderBottom: '1px solid var(--grid-h)', borderRight: '1px solid var(--grid-v)',
+  color: 'var(--text2)', background: 'var(--surface)',
 }
+const archiveTdStrong = { ...archiveTd, color: 'var(--text)', fontWeight: 700 }
+const archiveLink = { color: 'var(--accent2)', textDecoration: 'none', fontFamily: 'var(--mono)', fontSize: 11 }
 
-const archiveTdStrong = {
-  ...archiveTd,
-  color: 'var(--text)',
-  fontWeight: 700,
-}
-
-const archiveLink = {
-  color: 'var(--accent2)',
-  textDecoration: 'none',
-  fontFamily: 'var(--mono)',
-  fontSize: 11,
-}
-
-// ── Styles ──────────────────────────────────────────────────────
-function thStyle({ width, left } ) {
+function thStyle({ width, left }) {
   const isStickyCol = typeof left === 'number'
   return {
-    fontFamily: 'var(--mono)',
-    fontSize: 10, fontWeight: 500,
+    fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 500,
     letterSpacing: '0.12em', textTransform: 'uppercase',
-    color: 'var(--text3)',
-    padding: '8px 10px',
+    color: 'var(--text3)', padding: '8px 10px',
     textAlign: 'left',
-    borderBottom: '1px solid var(--grid-v)',
-    borderRight: '1px solid var(--grid-v)',
-    whiteSpace: 'nowrap',
-    position: 'sticky',
-    top: 0,
+    borderBottom: '1px solid var(--grid-v)', borderRight: '1px solid var(--grid-v)',
+    whiteSpace: 'nowrap', position: 'sticky', top: 0,
     background: 'var(--header)',
     zIndex: isStickyCol ? 90 : 80,
     width, minWidth: width,
@@ -508,24 +540,14 @@ function thStyle({ width, left } ) {
 }
 
 const tdLabel = {
-  verticalAlign: 'top',
-  padding: '8px 10px',
-  borderBottom: '1px solid var(--grid-h)',
-  borderRight: '1px solid var(--grid-v)',
-  background: 'var(--surface)',
-  position: 'sticky',
-  whiteSpace: 'normal',
-  wordBreak: 'break-word',
-  hyphens: 'auto',
-  minWidth: 0,
+  verticalAlign: 'top', padding: '8px 10px',
+  borderBottom: '1px solid var(--grid-h)', borderRight: '1px solid var(--grid-v)',
+  background: 'var(--surface)', position: 'sticky',
+  whiteSpace: 'normal', wordBreak: 'break-word', hyphens: 'auto', minWidth: 0,
 }
 
 const tdCell = {
-  verticalAlign: 'top',
-  padding: '6px 6px',
-  borderBottom: '1px solid var(--grid-h)',
-  borderRight: '1px solid var(--grid-v)',
-  background: 'var(--bg)',
-  minWidth: 0,
+  verticalAlign: 'top', padding: '6px 6px',
+  borderBottom: '1px solid var(--grid-h)', borderRight: '1px solid var(--grid-v)',
+  background: 'var(--bg)', minWidth: 0,
 }
-
