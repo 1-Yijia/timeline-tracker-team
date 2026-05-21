@@ -4,7 +4,8 @@ import { useTimeline, computeDisplayStage } from './hooks/useTimeline'
 import { useSheetConfig } from './hooks/useSheetConfig'
 import { OnboardingScreen, ReauthScreen } from './components/OnboardingScreen'
 import { FeatureCard } from './components/FeatureCard'
-import { Button, Input, FolderIcon, ConfirmModal } from './components/UI'
+import { Button, Input, FolderIcon, SyncIcon, BookIcon, SheetIcon, ConfirmModal } from './components/UI'
+import { UserGuide } from './components/UserGuide'
 
 const COL_PRODUCT = 70
 const COL_MARKET = 74
@@ -83,6 +84,7 @@ function Board({ sheetConfig }) {
   const [archiveQuery, setArchiveQuery] = useState('')
   const [archiveSort, setArchiveSort] = useState('desc')
   const [showChangeSheet, setShowChangeSheet] = useState(false)
+  const [showGuide, setShowGuide] = useState(false)
 
   useEffect(() => {
     function recompute() {
@@ -178,7 +180,7 @@ function Board({ sheetConfig }) {
           </span>
           <div style={{ position: 'relative', display: 'inline-flex' }}>
             <Button variant="ghost" size="sm" onClick={syncFromSheets} disabled={loading}>
-              {loading ? 'Syncing…' : 'Sync'}
+              <SyncIcon size={12} />{loading ? 'Syncing…' : 'Sync'}
             </Button>
             {hasPendingChanges && !loading && (
               <span style={{
@@ -195,20 +197,16 @@ function Board({ sheetConfig }) {
           >
             <FolderIcon size={12} /> Archive
           </Button>
-          {/* Change sheet */}
-          <button
-            onClick={() => setShowChangeSheet(true)}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontFamily: 'var(--mono)', fontSize: 10,
-              color: 'var(--text3)',
-              padding: '4px 6px',
-            }}
-          >
-            Change sheet
-          </button>
+          <Button variant="ghost" size="sm" onClick={() => setShowGuide(true)}>
+            <BookIcon size={12} />User guide
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowChangeSheet(true)}>
+            <SheetIcon size={12} />Change sheet
+          </Button>
         </div>
       </header>
+
+      <UserGuide open={showGuide} onClose={() => setShowGuide(false)} />
 
       {syncError && (
         <div style={{

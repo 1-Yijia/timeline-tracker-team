@@ -39,6 +39,14 @@ export function findArchivedSheetInfo(meta) {
   return { name: s.properties.title, gid: s.properties.sheetId }
 }
 
+export async function readArchivedHeaderRow(sheetId, archivedSheetName, token) {
+  const data = await apiGet(
+    `${BASE}/${sheetId}/values/${encodeURIComponent(`${archivedSheetName}!A1:G1`)}`,
+    token
+  )
+  return (data.values?.[0] ?? [])
+}
+
 // ── Low-level helpers ─────────────────────────────────────────────
 
 async function readRange(sheetId, range, token) {

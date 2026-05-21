@@ -10,7 +10,7 @@ const SYNC_TS_KEY = 'timeline-tracker-synced-at'
 function loadSyncedAt() {
   try { return Number(localStorage.getItem(SYNC_TS_KEY)) || null } catch { return null }
 }
-const REQUIRED_TIMELINE_STAGES = ['dev', 'test', 'uat', 'live']
+const REQUIRED_TIMELINE_STAGES = ['dev', 'qa', 'uat', 'live']
 
 function loadFromStorage() {
   try {
@@ -98,7 +98,7 @@ export function computeDisplayStage(feature, today) {
   const { stage, timeline } = feature
   if (!timeline || Object.keys(timeline).length === 0) return stage
 
-  const timedOrder = ['dev', 'test', 'uat', 'live', 'live-testing', 'greyscale']
+  const timedOrder = ['dev', 'qa', 'uat', 'live', 'live-testing', 'greyscale']
   let derived = stage
   let lastProvidedStage = null
   let lastProvidedRange = null

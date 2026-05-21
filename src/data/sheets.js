@@ -1,5 +1,50 @@
 import { fillMissingIds, readArchivedRows, archiveRow, unarchiveRow, deleteRow } from './sheetsApi'
 
+// Required header names for each tab, in column order.
+// Validation is case-insensitive and trims whitespace.
+export const MAIN_HEADERS = [
+  'ID', 'Product', 'Market', 'Name', 'FRF', 'PRD', 'Jira',
+  'Stage', 'Version',
+  'Dev Timeline', 'QA Timeline', 'UAT Timeline',
+  'Live Timeline', 'Live Testing Timeline', 'Greyscale Timeline',
+]
+
+export const ARCHIVED_HEADERS = [
+  'ID', 'Product', 'Market', 'Name', 'FRF', 'PRD', 'Jira',
+]
+
+// Returns an array of human-readable error strings, or an empty array if valid.
+export function validateMainHeaders(csvText) {
+  const lines = csvText.trim().split('\n')
+  if (!lines[0]) return ['Header row is empty.']
+  const cols = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase())
+  if (cols.length < MAIN_HEADERS.length) {
+    return [`Expected ${MAIN_HEADERS.length} columns, found ${cols.length}. Check the template for the correct column layout.`]
+  }
+  const missing = []
+  for (let i = 0; i < MAIN_HEADERS.length; i++) {
+    if (cols[i] !== MAIN_HEADERS[i].toLowerCase()) {
+      missing.push(`Column ${String.fromCharCode(65 + i)}: expected "${MAIN_HEADERS[i]}", found "${cols[i] || '(empty)'}"`)
+    }
+  }
+  return missing
+}
+
+// Validates the header row returned as an array of strings (from Sheets API).
+export function validateArchivedHeaders(headerRow) {
+  if (!headerRow || headerRow.length < ARCHIVED_HEADERS.length) {
+    return [`Expected ${ARCHIVED_HEADERS.length} columns in the Archived tab, found ${headerRow?.length ?? 0}.`]
+  }
+  const missing = []
+  for (let i = 0; i < ARCHIVED_HEADERS.length; i++) {
+    const actual = String(headerRow[i] ?? '').trim().toLowerCase()
+    if (actual !== ARCHIVED_HEADERS[i].toLowerCase()) {
+      missing.push(`Column ${String.fromCharCode(65 + i)}: expected "${ARCHIVED_HEADERS[i]}", found "${actual || '(empty)'}"`)
+    }
+  }
+  return missing
+}
+
 const STAGE_MAP = {
   pipeline: 'pipeline',
   frf: 'frf',
@@ -58,7 +103,7 @@ export function parseSheetCSV(csvText) {
 
     const timeline = {}
     if (devRange)         timeline.dev             = devRange
-    if (qaRange)          timeline.test            = qaRange
+    if (qaRange)          timeline.qa              = qaRange
     if (uatRange)         timeline.uat             = uatRange
     if (liveRange)        timeline.live            = liveRange
     if (liveTestingRange) timeline['live-testing'] = liveTestingRange

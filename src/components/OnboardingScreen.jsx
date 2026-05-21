@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react'
-import { getSpreadsheetMeta, findSheetNameByGid, findArchivedSheetInfo } from '../data/sheetsApi'
-import { getSheetCsvUrl } from '../data/sheets'
+import { getSpreadsheetMeta, findSheetNameByGid, findArchivedSheetInfo, readArchivedHeaderRow } from '../data/sheetsApi'
+import { getSheetCsvUrl, validateMainHeaders, validateArchivedHeaders } from '../data/sheets'
 import { Button } from './UI'
+
+const TEMPLATE_URL = 'https://docs.google.com/spreadsheets/d/1ollK2VBWk2UOFFHw-CK2LK39EL3SaJDO1slgd6ji6Mo/copy'
 
 function parseSheetUrl(url) {
   const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
@@ -41,6 +43,20 @@ function StatusLine({ status, message }) {
   )
 }
 
+// ── Requirement bullet list ───────────────────────────────────────
+
+function ReqList({ items }) {
+  return (
+    <ul style={{ margin: '0 0 12px', padding: '0 0 0 16px', listStyle: 'disc' }}>
+      {items.map((item, i) => (
+        <li key={i} style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.6, marginBottom: 2 }}>
+          {item}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────
 
 export function OnboardingScreen({ clientId, saveConfig, saveToken, setAuthState }) {
@@ -55,7 +71,6 @@ export function OnboardingScreen({ clientId, saveConfig, saveToken, setAuthState
     const val = e.target.value
     setSheetUrl(val)
     setParsed(parseSheetUrl(val.trim()))
-    // Reset downstream state when URL changes
     setStep1State('idle')
     setStep1Msg('')
     setOauthState('idle')
@@ -71,15 +86,26 @@ export function OnboardingScreen({ clientId, saveConfig, saveToken, setAuthState
       const res = await fetch(csvUrl, { cache: 'no-store' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const text = await res.text()
+
       if (text.trimStart().startsWith('<')) {
         setStep1State('error')
         setStep1Msg(
-          'Sheet is not public. In Google Sheets: Share → Anyone with the link → Viewer, then retry.'
+          'Sheet is not publicly readable. In Google Sheets: Share → Anyone with the link → Viewer, then retry.'
         )
         return
       }
+
+      const headerErrors = validateMainHeaders(text)
+      if (headerErrors.length > 0) {
+        setStep1State('error')
+        setStep1Msg(
+          `Column format does not match the template:\n${headerErrors.join('\n')}\nSee the template for the correct column names and order.`
+        )
+        return
+      }
+
       setStep1State('ok')
-      setStep1Msg('Sheet is readable.')
+      setStep1Msg('Sheet is accessible and column format is correct.')
     } catch {
       setStep1State('error')
       setStep1Msg('Could not reach this sheet. Check the URL and your internet connection.')
@@ -118,6 +144,19 @@ export function OnboardingScreen({ clientId, saveConfig, saveToken, setAuthState
 
           const archivedInfo = findArchivedSheetInfo(meta)
 
+          // Validate Archived tab columns if it exists
+          if (archivedInfo) {
+            const archivedHeaderRow = await readArchivedHeaderRow(
+              parsed.sheetId, archivedInfo.name, resp.access_token
+            )
+            const archivedErrors = validateArchivedHeaders(archivedHeaderRow)
+            if (archivedErrors.length > 0) {
+              throw new Error(
+                `Your Archived tab column format does not match the template:\n${archivedErrors.join('\n')}`
+              )
+            }
+          }
+
           saveConfig({
             sheetId: parsed.sheetId,
             gid: parsed.gid,
@@ -130,7 +169,6 @@ export function OnboardingScreen({ clientId, saveConfig, saveToken, setAuthState
 
           setOauthState('ok')
           setOauthMsg('Connected.')
-          // Brief pause so the user sees the success state before the board appears
           setTimeout(() => setAuthState('ready'), 600)
         } catch (e) {
           setOauthState('error')
@@ -176,9 +214,38 @@ export function OnboardingScreen({ clientId, saveConfig, saveToken, setAuthState
         <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px' }}>
           Connect your Google Sheet
         </h1>
-        <p style={{ fontSize: 13, color: 'var(--text2)', margin: '0 0 32px', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 13, color: 'var(--text2)', margin: '0 0 24px', lineHeight: 1.6 }}>
           Your data stays in your own spreadsheet. This app reads and writes to it directly.
         </p>
+
+        {/* Template callout */}
+        <div style={{
+          border: '1px solid var(--border2)',
+          borderRadius: 8,
+          padding: '14px 16px',
+          marginBottom: 28,
+          background: 'var(--surface2)',
+        }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: '0 0 4px' }}>
+            Starting fresh?
+          </p>
+          <p style={{ fontSize: 12, color: 'var(--text3)', margin: '0 0 10px', lineHeight: 1.5 }}>
+            Use our template — it has the correct column layout and sample rows already set up.
+          </p>
+          <a
+            href={TEMPLATE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 12, fontWeight: 600,
+              color: 'var(--accent)',
+              textDecoration: 'none',
+            }}
+          >
+            Open template ↗
+          </a>
+        </div>
 
         {/* Step 1 */}
         <div style={{ display: 'flex', gap: 14, marginBottom: 28 }}>
@@ -186,12 +253,19 @@ export function OnboardingScreen({ clientId, saveConfig, saveToken, setAuthState
             <StepDot n={1} active={step1State !== 'ok'} done={step1State === 'ok'} />
           </div>
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: '0 0 10px' }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: '0 0 8px' }}>
               Paste your Google Sheet URL
             </p>
-            <p style={{ fontSize: 12, color: 'var(--text3)', margin: '0 0 10px', lineHeight: 1.5 }}>
-              Copy the URL while viewing the tab that contains your timeline data — the tab ID is captured automatically.
+            <p style={{ fontSize: 12, color: 'var(--text3)', margin: '0 0 8px', lineHeight: 1.5 }}>
+              Copy the URL while viewing the tab with your timeline data — the tab ID is captured automatically.
             </p>
+            <ReqList items={[
+              'Share the sheet as Anyone with the link → Viewer, and keep it public — the app reads it on every load.',
+              'Your spreadsheet must have your main tab (any name — paste its URL here) and a second tab named exactly Archived.',
+              'Both tabs must have columns matching the template. Do not add, remove, or reorder columns.',
+              'Timeline date format: YYYY/MM/DD-YYYY/MM/DD (e.g. 2026/06/01-2026/06/14).',
+              'Rows are auto-grouped by Product and Market for display in the UI board.',
+            ]} />
             <input
               value={sheetUrl}
               onChange={onUrlChange}
@@ -218,10 +292,27 @@ export function OnboardingScreen({ clientId, saveConfig, saveToken, setAuthState
                 {step1State === 'checking' ? 'Checking…' : 'Check access'}
               </Button>
             </div>
-            <StatusLine
-              status={step1State === 'ok' ? 'ok' : 'error'}
-              message={step1Msg}
-            />
+            {step1State === 'error' && step1Msg && (
+              <div style={{
+                marginTop: 8,
+                fontSize: 12, color: 'var(--red)',
+                lineHeight: 1.6,
+                whiteSpace: 'pre-line',
+              }}>
+                ✕ {step1Msg}
+                {step1Msg.includes('template') && (
+                  <span> <a
+                    href={TEMPLATE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}
+                  >Open template ↗</a></span>
+                )}
+              </div>
+            )}
+            {step1State === 'ok' && (
+              <StatusLine status="ok" message={step1Msg} />
+            )}
           </div>
         </div>
 
@@ -239,11 +330,12 @@ export function OnboardingScreen({ clientId, saveConfig, saveToken, setAuthState
             <StepDot n={2} active={step2Unlocked && oauthState !== 'ok'} done={oauthState === 'ok'} />
           </div>
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: '0 0 10px' }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: '0 0 8px' }}>
               Sign in with Google
             </p>
             <p style={{ fontSize: 12, color: 'var(--text3)', margin: '0 0 14px', lineHeight: 1.5 }}>
-              Grants read and write access to your sheet. No data is stored outside your browser.
+              Grants write access so the app can update your sheet directly. Your data lives entirely
+              within your own Google account — nothing is stored outside your browser.
             </p>
             <Button
               variant="primary"
@@ -255,10 +347,19 @@ export function OnboardingScreen({ clientId, saveConfig, saveToken, setAuthState
                 : oauthState === 'verifying' ? 'Verifying access…'
                 : 'Sign in with Google'}
             </Button>
-            <StatusLine
-              status={oauthState === 'ok' ? 'ok' : 'error'}
-              message={oauthMsg}
-            />
+            {oauthState === 'error' && oauthMsg && (
+              <div style={{
+                marginTop: 8,
+                fontSize: 12, color: 'var(--red)',
+                lineHeight: 1.6,
+                whiteSpace: 'pre-line',
+              }}>
+                ✕ {oauthMsg}
+              </div>
+            )}
+            {oauthState === 'ok' && (
+              <StatusLine status="ok" message={oauthMsg} />
+            )}
           </div>
         </div>
       </div>
@@ -267,7 +368,6 @@ export function OnboardingScreen({ clientId, saveConfig, saveToken, setAuthState
 }
 
 // ── Re-auth screen ────────────────────────────────────────────────
-// Shown when config exists but Google session expired and silent refresh failed.
 
 export function ReauthScreen({ clientId, saveToken, setAuthState }) {
   const [state, setState] = useState('idle') // idle|pending|error

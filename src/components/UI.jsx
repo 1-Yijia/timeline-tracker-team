@@ -8,6 +8,36 @@ export function FolderIcon({ size = 13 }) {
   )
 }
 
+export function SyncIcon({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3.5V7H8.5" />
+      <path d="M12 7A5 5 0 1 0 9.5 11.5" />
+    </svg>
+  )
+}
+
+export function BookIcon({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="1.5" width="10" height="11" rx="1.5" />
+      <line x1="4.5" y1="5" x2="9.5" y2="5" />
+      <line x1="4.5" y1="7.5" x2="9.5" y2="7.5" />
+      <line x1="4.5" y1="10" x2="7.5" y2="10" />
+    </svg>
+  )
+}
+
+export function SheetIcon({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1.5" y="1.5" width="11" height="11" rx="1.5" />
+      <line x1="1.5" y1="5" x2="12.5" y2="5" />
+      <line x1="5" y1="5" x2="5" y2="12.5" />
+    </svg>
+  )
+}
+
 // ── Button ──────────────────────────────────────────────────────
 const btnBase = {
   display: 'inline-flex', alignItems: 'center', gap: 6,

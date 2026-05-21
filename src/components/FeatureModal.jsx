@@ -9,7 +9,7 @@ const EMPTY = {
   stage: 'pipeline',
   version: '', timeline: {},
   tl_dev_start: '', tl_dev_end: '',
-  tl_test_start: '', tl_test_end: '',
+  tl_qa_start: '', tl_qa_end: '',
   tl_uat_start: '', tl_uat_end: '',
   tl_live_start: '', tl_live_end: '',
 }
@@ -37,8 +37,8 @@ export function FeatureModal({ open, onClose, initialData, products, markets, on
         ...src,
         tl_dev_start:  parseIso(t.dev, 'start'),
         tl_dev_end:    parseIso(t.dev, 'end'),
-        tl_test_start: parseIso(t.test, 'start'),
-        tl_test_end:   parseIso(t.test, 'end'),
+        tl_qa_start:   parseIso(t.qa, 'start'),
+        tl_qa_end:     parseIso(t.qa, 'end'),
         tl_uat_start:  parseIso(t.uat, 'start'),
         tl_uat_end:    parseIso(t.uat, 'end'),
         tl_live_start: parseIso(t.live, 'start'),
@@ -223,9 +223,9 @@ export function FeatureModal({ open, onClose, initialData, products, markets, on
               <Input type="date" value={form.tl_dev_start} onChange={e => set('tl_dev_start', e.target.value)} />
               <Input type="date" value={form.tl_dev_end} onChange={e => set('tl_dev_end', e.target.value)} />
 
-              <div style={tlStageCell}>Test</div>
-              <Input type="date" value={form.tl_test_start} onChange={e => set('tl_test_start', e.target.value)} />
-              <Input type="date" value={form.tl_test_end} onChange={e => set('tl_test_end', e.target.value)} />
+              <div style={tlStageCell}>QA</div>
+              <Input type="date" value={form.tl_qa_start} onChange={e => set('tl_qa_start', e.target.value)} />
+              <Input type="date" value={form.tl_qa_end} onChange={e => set('tl_qa_end', e.target.value)} />
 
               <div style={tlStageCell}>UAT</div>
               <Input type="date" value={form.tl_uat_start} onChange={e => set('tl_uat_start', e.target.value)} />
@@ -292,7 +292,7 @@ function buildTimelineFromForm(form) {
 
   return {
     ...(mk(form.tl_dev_start, form.tl_dev_end) ? { dev: mk(form.tl_dev_start, form.tl_dev_end) } : {}),
-    ...(mk(form.tl_test_start, form.tl_test_end) ? { test: mk(form.tl_test_start, form.tl_test_end) } : {}),
+    ...(mk(form.tl_qa_start, form.tl_qa_end) ? { qa: mk(form.tl_qa_start, form.tl_qa_end) } : {}),
     ...(mk(form.tl_uat_start, form.tl_uat_end) ? { uat: mk(form.tl_uat_start, form.tl_uat_end) } : {}),
     ...(mk(form.tl_live_start, form.tl_live_end) ? { live: mk(form.tl_live_start, form.tl_live_end) } : {}),
   }
