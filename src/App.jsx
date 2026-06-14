@@ -6,6 +6,17 @@ import { OnboardingScreen, ReauthScreen } from './components/OnboardingScreen'
 import { FeatureCard } from './components/FeatureCard'
 import { Button, Input, FolderIcon, SyncIcon, BookIcon, SheetIcon, ConfirmModal } from './components/UI'
 import { UserGuide } from './components/UserGuide'
+import { MobileBoard } from './components/MobileBoard'
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
 
 const COL_PRODUCT = 70
 const COL_MARKET = 74
@@ -71,6 +82,7 @@ export default function App() {
 
 function Board({ sheetConfig }) {
   const { config, getAccessToken, clearAll } = sheetConfig
+  const isMobile = useIsMobile()
 
   const {
     rows, features, today,
@@ -137,6 +149,24 @@ function Board({ sheetConfig }) {
   , [sortedRows, features, today]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const postLiveSpans = useMemo(() => computeSpans(postLiveRows), [postLiveRows])
+
+  if (isMobile) {
+    return (
+      <MobileBoard
+        features={features}
+        rows={rows}
+        today={today}
+        deleteFeature={deleteFeature}
+        setArchived={setArchived}
+        loading={loading}
+        syncError={syncError}
+        lastSyncedAt={lastSyncedAt}
+        syncFromSheets={syncFromSheets}
+        hasPendingChanges={hasPendingChanges}
+        clearAll={clearAll}
+      />
+    )
+  }
 
   return (
     <div style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

@@ -211,6 +211,47 @@ export function ConfirmModal({ open, onClose, onConfirm, title, message, confirm
   )
 }
 
+// ── BottomSheet ─────────────────────────────────────────────────
+export function BottomSheet({ open, onClose, children }) {
+  useEffect(() => {
+    if (!open) return
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(0,0,0,0.5)',
+        zIndex: 300,
+        display: 'flex',
+        alignItems: 'flex-end',
+      }}
+    >
+      <div style={{
+        background: 'var(--surface)',
+        borderRadius: '16px 16px 0 0',
+        width: '100%',
+        maxHeight: '88vh',
+        overflowY: 'auto',
+        paddingBottom: 32,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 6px' }}>
+          <div style={{ width: 36, height: 4, background: 'var(--border2)', borderRadius: 2 }} />
+        </div>
+        <div style={{ padding: '0 20px' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── FormField ───────────────────────────────────────────────────
 export function FormField({ label, children, style }) {
   return (
