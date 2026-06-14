@@ -209,7 +209,7 @@ function TimelineDisplay({ feature }) {
     const value = feature.timeline?.[key]
     if (!value) return
     const [start, end] = value.split('-')
-    rows.push({ label, value: `${start} – ${end}` })
+    rows.push({ label, value: `${start} – ${end}`, isLive: key === 'live' })
   })
 
   return (
@@ -223,7 +223,7 @@ function TimelineDisplay({ feature }) {
         </div>
       </div>
 
-      {rows.map(({ label, value, isVersion }, i) => (
+      {rows.map(({ label, value, isVersion, isLive }, i) => (
         <div
           key={label}
           style={{
@@ -231,16 +231,27 @@ function TimelineDisplay({ feature }) {
             alignItems: 'baseline',
             justifyContent: 'space-between',
             gap: 24,
-            padding: '10px 0',
+            padding: isLive ? '8px 10px' : '10px 0',
             borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+            ...(isLive ? {
+              background: '#f5a62315',
+              border: '1px solid #f5a62330',
+              borderRadius: 6,
+              marginTop: 4,
+            } : {}),
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', flexShrink: 0 }}>
+          <div style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: isLive ? 'var(--amber)' : 'var(--text)',
+            flexShrink: 0,
+          }}>
             {label}
           </div>
           <div style={{
             fontSize: 11.5,
-            color: 'var(--text3)',
+            color: isLive ? 'var(--amber)' : 'var(--text3)',
             fontFamily: 'var(--mono)',
             textAlign: 'right',
             letterSpacing: isVersion ? undefined : '0.02em',
