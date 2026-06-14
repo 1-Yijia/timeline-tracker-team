@@ -147,26 +147,26 @@ export async function readArchivedRows(config, token) {
   const { sheetId, archivedSheetName } = config
   if (!archivedSheetName) return []
 
-  const rows = await readRange(sheetId, `${archivedSheetName}!A:G`, token)
+  const rows = await readRange(sheetId, `${archivedSheetName}!A:H`, token)
   return rows.slice(1)
     .map(row => ({
-      id:       `fs${String(row[0] ?? '').trim()}`,
-      product:  String(row[1] ?? ''),
-      market:   String(row[2] ?? ''),
-      name:     String(row[3] ?? ''),
-      frf:      String(row[4] ?? ''),
-      prd:      String(row[5] ?? ''),
-      jira:     String(row[6] ?? ''),
-      stage:    'pipeline',
-      version:  '',
-      timeline: {},
-      createdAt: Date.now(),
-      archived: true,
+      id:          `fs${String(row[0] ?? '').trim()}`,
+      product:     String(row[1] ?? ''),
+      market:      String(row[2] ?? ''),
+      name:        String(row[3] ?? ''),
+      frf:         String(row[4] ?? ''),
+      prd:         String(row[5] ?? ''),
+      jira:        String(row[6] ?? ''),
+      archiveInfo: String(row[7] ?? ''),
+      stage:       'pipeline',
+      version:     '',
+      timeline:    {},
+      archived:    true,
     }))
     .filter(r => r.id !== 'fs')
 }
 
-export async function archiveRow(config, rowId, token) {
+export async function archiveRow(config, rowId, token, archiveInfo = '') {
   const { sheetId, mainSheetName, mainSheetGid, archivedSheetName } = config
   if (!archivedSheetName) throw new Error('No Archived sheet found. Add a tab named "Archived" to your spreadsheet.')
 
@@ -187,6 +187,7 @@ export async function archiveRow(config, rowId, token) {
     row[4] ?? '',  // E: FRF
     row[5] ?? '',  // F: PRD
     row[6] ?? '',  // G: JIRA
+    archiveInfo,   // H: Archive Info
   ]
   await appendRows(sheetId, archivedSheetName, [archiveData], token)
 

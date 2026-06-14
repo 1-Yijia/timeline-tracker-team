@@ -48,6 +48,16 @@ function inferCreatedAtFromId(id) {
   return Number.isFinite(n) ? n : null
 }
 
+function formatLiveDate(rangeStr) {
+  if (!rangeStr) return ''
+  const startStr = rangeStr.split('-')[0]
+  const parts = (startStr || '').split('.')
+  if (parts.length < 3) return ''
+  const dt = new Date(+parts[0], +parts[1] - 1, +parts[2])
+  if (isNaN(dt.getTime())) return ''
+  return `Live: ${dt.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+}
+
 // ── Date helpers ────────────────────────────────────────────────
 export function parseTrackerDate(s) {
   // Expects "YYYY.MM.DD"
@@ -198,7 +208,7 @@ export function useTimeline({ config, getAccessToken } = {}) {
   useEffect(() => {
     state.features.forEach(f => {
       if (!f.archived && computeDisplayStage(f, today) === 'auto-archive') {
-        enqueuePendingAction(f.id, 'auto-archive')
+        enqueuePendingAction(f.id, 'auto-archive', formatLiveDate(f.timeline?.live))
       }
     })
   }, [state.features]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -250,10 +260,12 @@ export function useTimeline({ config, getAccessToken } = {}) {
 
   const setArchived = useCallback((id, archived) => {
     if (hasPendingAction(id)) return 'conflict'
-    enqueuePendingAction(id, archived ? 'archive' : 'unarchive')
+    enqueuePendingAction(id, archived ? 'archive' : 'unarchive', archived ? 'Archived by user' : undefined)
     commit({
       ...state,
-      features: state.features.map(f => f.id === id ? { ...f, archived: Boolean(archived) } : f),
+      features: state.features.map(f =>
+        f.id === id ? { ...f, archived: Boolean(archived), archiveInfo: archived ? 'Archived by user' : undefined } : f
+      ),
     })
   }, [state, commit])
 

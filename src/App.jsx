@@ -409,9 +409,9 @@ function ArchiveView({ features, query, setQuery, sortDir, setSortDir, onUnarchi
   const filtered = features
     .filter(f => (f?.name || '').toLowerCase().includes(q))
     .sort((a, b) => {
-      const av = typeof a.createdAt === 'number' ? a.createdAt : 0
-      const bv = typeof b.createdAt === 'number' ? b.createdAt : 0
-      return sortDir === 'asc' ? (av - bv) : (bv - av)
+      const av = a.archiveInfo || ''
+      const bv = b.archiveInfo || ''
+      return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
     })
 
   return (
@@ -442,7 +442,7 @@ function ArchiveView({ features, query, setQuery, sortDir, setSortDir, onUnarchi
               <th style={archiveTh}>Market</th>
               <th style={archiveTh}>PRD</th>
               <th style={archiveTh}>Jira</th>
-              <th style={{ ...archiveTh, textAlign: 'right' }}>Created</th>
+              <th style={{ ...archiveTh, textAlign: 'right' }}>Archive Info</th>
               <th style={{ ...archiveTh, borderRight: 'none' }}></th>
             </tr>
           </thead>
@@ -463,7 +463,7 @@ function ArchiveView({ features, query, setQuery, sortDir, setSortDir, onUnarchi
                   ) : <span style={{ color: 'var(--text3)' }}>—</span>}
                 </td>
                 <td style={{ ...archiveTd, textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 11 }}>
-                  {formatCreatedAt(f.createdAt)}
+                  {f.archiveInfo || <span style={{ color: 'var(--text3)' }}>—</span>}
                 </td>
                 <td style={{ ...archiveTd, borderRight: 'none', textAlign: 'right' }}>
                   <button
@@ -495,15 +495,6 @@ function ArchiveView({ features, query, setQuery, sortDir, setSortDir, onUnarchi
   )
 }
 
-function formatCreatedAt(ms) {
-  if (typeof ms !== 'number') return '—'
-  const d = new Date(ms)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleString('en-GB', {
-    year: 'numeric', month: 'short', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
 
 const archiveTh = {
   fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 500,

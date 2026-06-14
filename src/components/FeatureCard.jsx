@@ -11,6 +11,7 @@ export function FeatureCard({ feature, displayStage, onDelete, onArchive }) {
   const leaveTimer = useRef(null)
   const rangeLabel = getActiveRangeLabel(feature, displayStage)
   const archived = Boolean(feature.archived)
+  const hasTimeline = feature.timeline && Object.keys(feature.timeline).length > 0
 
   const handleEnter = () => { clearTimeout(leaveTimer.current); setHovered(true) }
   const handleLeave = () => { leaveTimer.current = setTimeout(() => setHovered(false), 80) }
@@ -50,8 +51,16 @@ export function FeatureCard({ feature, displayStage, onDelete, onArchive }) {
       <InfoModal
         open={showInfo}
         onClose={() => setShowInfo(false)}
-        message="Stage and timeline changes can only be made in the Google Sheet. Sync after updating."
-      />
+        width={hasTimeline ? 500 : 340}
+      >
+        {hasTimeline ? (
+          <TimelineDisplay feature={feature} />
+        ) : (
+          <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20, lineHeight: 1.6 }}>
+            Stage and timeline changes can only be made in the Google Sheet. Sync after updating.
+          </div>
+        )}
+      </InfoModal>
       <InfoModal
         open={showConflict}
         onClose={() => setShowConflict(false)}
@@ -181,3 +190,66 @@ const linkStyle = {
   color: 'var(--accent2)',
   textDecoration: 'none', display: 'inline-block',
 }
+
+function TimelineDisplay({ feature }) {
+  const timelineFields = [
+    { key: 'dev', label: 'Dev' },
+    { key: 'qa', label: 'QA' },
+    { key: 'uat', label: 'UAT' },
+    { key: 'live', label: 'Live' },
+    { key: 'live-testing', label: 'Live Testing' },
+    { key: 'greyscale', label: 'Greyscale' },
+  ]
+
+  const rows = []
+  if (feature.version) {
+    rows.push({ label: 'Version', value: feature.version, isVersion: true })
+  }
+  timelineFields.forEach(({ key, label }) => {
+    const value = feature.timeline?.[key]
+    if (!value) return
+    const [start, end] = value.split('-')
+    rows.push({ label, value: `${start} – ${end}` })
+  })
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, marginBottom: 5 }}>
+          {feature.name}
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>
+          {feature.product}{feature.market ? ` · ${feature.market}` : ''}
+        </div>
+      </div>
+
+      {rows.map(({ label, value, isVersion }, i) => (
+        <div
+          key={label}
+          style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            justifyContent: 'space-between',
+            gap: 24,
+            padding: '10px 0',
+            borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', flexShrink: 0 }}>
+            {label}
+          </div>
+          <div style={{
+            fontSize: 11.5,
+            color: 'var(--text3)',
+            fontFamily: 'var(--mono)',
+            textAlign: 'right',
+            letterSpacing: isVersion ? undefined : '0.02em',
+          }}>
+            {value}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+

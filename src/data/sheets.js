@@ -146,11 +146,13 @@ function clearPendingQueue() {
   try { localStorage.removeItem(PENDING_KEY) } catch {}
 }
 
-export function enqueuePendingAction(id, action) {
+export function enqueuePendingAction(id, action, archiveInfo) {
   if (!id?.startsWith('fs')) return
   const queue = getPendingQueue()
   if (queue.some(item => item.id === id)) return
-  setPendingQueue([...queue, { id, action, timestamp: Date.now() }])
+  const item = { id, action, timestamp: Date.now() }
+  if (archiveInfo) item.archiveInfo = archiveInfo
+  setPendingQueue([...queue, item])
 }
 
 export function hasPendingAction(id) {
@@ -171,7 +173,7 @@ async function processPendingQueue(config, token) {
       if (item.action === 'delete') {
         await deleteRow(config, item.id, token)
       } else if (item.action === 'archive' || item.action === 'auto-archive') {
-        await archiveRow(config, item.id, token)
+        await archiveRow(config, item.id, token, item.archiveInfo || '')
       } else if (item.action === 'unarchive') {
         await unarchiveRow(config, item.id, token)
       }

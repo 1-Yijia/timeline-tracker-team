@@ -122,7 +122,7 @@ export function Modal({ open, onClose, title, children, width = 500 }) {
 }
 
 // ── InfoModal ───────────────────────────────────────────────────
-export function InfoModal({ open, onClose, message }) {
+export function InfoModal({ open, onClose, message, children, width = 340 }) {
   useEffect(() => {
     if (!open) return
     const handler = (e) => { if (e.key === 'Escape') onClose() }
@@ -147,12 +147,16 @@ export function InfoModal({ open, onClose, message }) {
         background: 'var(--surface)',
         border: '1px solid var(--border2)',
         borderRadius: 12,
-        width: 340, maxWidth: '95vw',
+        width, maxWidth: '95vw',
         padding: '24px 28px',
       }}>
-        <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20, lineHeight: 1.6 }}>
-          {message}
-        </div>
+        {children ? (
+          children
+        ) : (
+          <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20, lineHeight: 1.6 }}>
+            {message}
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Button variant="ghost" size="sm" onClick={onClose}>Got it</Button>
         </div>
