@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Modal, FormField, Input, Button } from './UI'
+import { track } from '../analytics.js'
 
 export function AddRowModal({ open, onClose, products, onSave }) {
   const [product, setProduct] = useState('')
@@ -14,6 +15,7 @@ export function AddRowModal({ open, onClose, products, onSave }) {
       alert('Please fill in both product and market.')
       return
     }
+    track('row_added', { product: product.trim(), market: market.trim() })
     onSave(product.trim(), market.trim())
     onClose()
   }

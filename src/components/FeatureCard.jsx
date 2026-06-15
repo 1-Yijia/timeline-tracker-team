@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { getActiveRangeLabel } from '../hooks/useTimeline'
 import { hasPendingAction } from '../data/sheets'
 import { ConfirmModal, InfoModal, FolderIcon } from './UI'
+import { track } from '../analytics.js'
 
 export function FeatureCard({ feature, displayStage, onDelete, onArchive }) {
   const [hovered, setHovered] = useState(false)
@@ -22,7 +23,7 @@ export function FeatureCard({ feature, displayStage, onDelete, onArchive }) {
       message: `"${feature.name}" will be permanently removed. If it came from Google Sheets, it won't reappear on the next sync.`,
       confirmLabel: 'Delete',
       confirmVariant: 'danger',
-      onConfirm: () => onDelete(feature.id),
+      onConfirm: () => { track('feature_deleted', { feature: feature.name, product: feature.product, market: feature.market }); onDelete(feature.id) },
     },
     archive: {
       title: archived ? 'Unarchive feature?' : 'Archive feature?',
@@ -31,7 +32,7 @@ export function FeatureCard({ feature, displayStage, onDelete, onArchive }) {
         : `"${feature.name}" will be archived and all timeline data permanently removed. You can restore it to Pipeline from the Archive view, but timeline data cannot be recovered.`,
       confirmLabel: archived ? 'Unarchive' : 'Archive',
       confirmVariant: 'ghost',
-      onConfirm: () => onArchive(feature.id, !archived),
+      onConfirm: () => { track(archived ? 'feature_unarchived' : 'feature_archived', { feature: feature.name, product: feature.product, market: feature.market }); onArchive(feature.id, !archived) },
     },
   }
 
@@ -71,7 +72,7 @@ export function FeatureCard({ feature, displayStage, onDelete, onArchive }) {
       <div
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
-        onClick={() => setShowInfo(true)}
+        onClick={() => { track('feature_card_opened', { feature: feature.name, product: feature.product, market: feature.market }); setShowInfo(true) }}
         style={{ position: 'relative', cursor: 'pointer' }}
       >
         <div style={{

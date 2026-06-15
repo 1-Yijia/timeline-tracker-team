@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { track } from './analytics.js'
 import { STAGES, STAGE_LABELS } from './data/constants'
 import { useTimeline, computeDisplayStage } from './hooks/useTimeline'
 import { useSheetConfig } from './hooks/useSheetConfig'
@@ -97,6 +98,8 @@ function Board({ sheetConfig }) {
   const [archiveSort, setArchiveSort] = useState('desc')
   const [showChangeSheet, setShowChangeSheet] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
+
+  useEffect(() => { track('app_loaded') }, [])
 
   useEffect(() => {
     function recompute() {
@@ -209,7 +212,7 @@ function Board({ sheetConfig }) {
                 : 'Local data'}
           </span>
           <div style={{ position: 'relative', display: 'inline-flex' }}>
-            <Button variant="ghost" size="sm" onClick={syncFromSheets} disabled={loading}>
+            <Button variant="ghost" size="sm" onClick={() => { track('sync_triggered'); syncFromSheets() }} disabled={loading}>
               <SyncIcon size={12} />{loading ? 'Syncing…' : 'Sync'}
             </Button>
             {hasPendingChanges && !loading && (
@@ -223,14 +226,14 @@ function Board({ sheetConfig }) {
           <Button
             variant={activeTab === 'archived' ? 'primary' : 'ghost'}
             size="sm"
-            onClick={() => setActiveTab(activeTab === 'archived' ? 'active' : 'archived')}
+            onClick={() => { const next = activeTab === 'archived' ? 'active' : 'archived'; if (next === 'archived') track('archive_tab_opened'); setActiveTab(next) }}
           >
             <FolderIcon size={12} /> Archive
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setShowGuide(true)}>
+          <Button variant="ghost" size="sm" onClick={() => { track('user_guide_opened'); setShowGuide(true) }}>
             <BookIcon size={12} />User guide
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setShowChangeSheet(true)}>
+          <Button variant="ghost" size="sm" onClick={() => { track('change_sheet_initiated'); setShowChangeSheet(true) }}>
             <SheetIcon size={12} />Change sheet
           </Button>
         </div>
