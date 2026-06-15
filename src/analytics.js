@@ -16,3 +16,18 @@ export function track(event, properties) {
   if (!key) return
   posthog.capture(event, properties)
 }
+
+export async function identifyUser(getAccessToken) {
+  if (!key) return
+  try {
+    const token = await getAccessToken()
+    if (!token) return
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const { email, name } = await res.json()
+    if (email) posthog.identify(email, { name, email })
+  } catch {
+    // silently fail — analytics should never break the app
+  }
+}

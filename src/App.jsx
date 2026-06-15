@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { track } from './analytics.js'
+import { track, identifyUser } from './analytics.js'
 import { STAGES, STAGE_LABELS } from './data/constants'
 import { useTimeline, computeDisplayStage } from './hooks/useTimeline'
 import { useSheetConfig } from './hooks/useSheetConfig'
@@ -99,7 +99,10 @@ function Board({ sheetConfig }) {
   const [showChangeSheet, setShowChangeSheet] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
 
-  useEffect(() => { track('app_loaded') }, [])
+  useEffect(() => {
+    identifyUser(getAccessToken)
+    track('app_loaded')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function recompute() {
