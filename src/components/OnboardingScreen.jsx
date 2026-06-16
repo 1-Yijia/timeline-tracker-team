@@ -123,7 +123,7 @@ export function OnboardingScreen({ clientId, saveConfig, saveToken, setAuthState
 
     const client = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
-      scope: 'https://www.googleapis.com/auth/spreadsheets',
+      scope: 'https://www.googleapis.com/auth/spreadsheets email profile',
       callback: async (resp) => {
         if (resp.error || !resp.access_token) {
           setOauthState('error')
@@ -384,7 +384,7 @@ export function ReauthScreen({ clientId, saveToken, setAuthState }) {
 
     const client = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
-      scope: 'https://www.googleapis.com/auth/spreadsheets',
+      scope: 'https://www.googleapis.com/auth/spreadsheets email profile',
       callback: (resp) => {
         if (resp.error || !resp.access_token) {
           setState('error')

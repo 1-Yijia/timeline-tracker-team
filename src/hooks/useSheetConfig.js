@@ -36,7 +36,7 @@ export async function trySilentRefresh(clientId) {
     try {
       const client = window.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/spreadsheets',
+        scope: 'https://www.googleapis.com/auth/spreadsheets email profile',
         prompt: '',
         callback: (resp) => {
           if (resp.error || !resp.access_token) { resolve(null); return }
