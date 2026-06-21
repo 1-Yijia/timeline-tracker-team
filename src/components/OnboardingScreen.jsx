@@ -6,7 +6,7 @@ import { Button } from './UI'
 const TEMPLATE_URL = 'https://docs.google.com/spreadsheets/d/1ollK2VBWk2UOFFHw-CK2LK39EL3SaJDO1slgd6ji6Mo/copy'
 
 function parseSheetUrl(url) {
-  const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
+  const idMatch = url.match(/\/spreadsheets\/(?:u\/\d+\/)?d\/([a-zA-Z0-9_-]+)/)
   if (!idMatch) return null
   const sheetId = idMatch[1]
   const gidMatch = url.match(/[#&]gid=(\d+)/)
